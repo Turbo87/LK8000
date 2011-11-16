@@ -12,6 +12,7 @@
 #include "Terrain.h"
 #include "RasterTerrain.h"
 #include "LKGeneralAviation.h"
+#include "StopWatch.hpp"
 
 
 #define DONTDRAWTHEMAP !mode.AnyPan()&&MapSpaceMode!=MSM_MAP
@@ -60,9 +61,13 @@ void MapWindow::RenderMapWindowBg(HDC hdc, const RECT rc,
   // updating of visible landables, for example. The nearest pages do this separately, with their own sorting.
   // Basically we assume -like for nearest- that values will not change that much in the multicalc split time.
   // Target and tasks are recalculated in real time in any case. Nearest too. 
+  draw_stop_watch.Mark(_T("LKCalculateWaypointReachable"));
   LKCalculateWaypointReachable(multicalc_slot, numslots);
+  draw_stop_watch.Mark(_T("CalculateScreenPositionsAirspace"));
   CalculateScreenPositionsAirspace();
+  draw_stop_watch.Mark(_T("CalculateScreenPositionsThermalSources"));
   CalculateScreenPositionsThermalSources();
+  draw_stop_watch.Mark(_T("CalculateScreenPositionsGroundline"));
   CalculateScreenPositionsGroundline();
 
   if (PGZoomTrigger) {
@@ -148,6 +153,7 @@ fastzoom:
 	double sunelevation = 40.0;
 	double sunazimuth=GetAzimuth();
 
+        draw_stop_watch.Mark(_T("DrawTerrain"));
     LockTerrainDataGraphics();
  	if (DONTDRAWTHEMAP) { // 100318
 		UnlockTerrainDataGraphics();
@@ -160,6 +166,7 @@ fastzoom:
 		SelectObject(hdcDrawWindow, hfOld);
 		goto QuickRedraw;
 	}
+        draw_stop_watch.Mark(_T("DrawTerrainAbove"));
     if (!QUICKDRAW) {
     	// shaded terrain unreachable, aka glide amoeba
     	if ((FinalGlideTerrain==2) && DerivedDrawInfo.TerrainValid) {
@@ -181,6 +188,7 @@ fastzoom:
   }
 
   if (EnableTopology) {
+    draw_stop_watch.Mark(_T("DrawTopology"));
     DrawTopology(hdc, rc); // LOCKED 091105
   }
   #if 0
@@ -199,6 +207,7 @@ fastzoom:
   #endif
   
   if (ValidTaskPoint(ActiveWayPoint) && ValidTaskPoint(1)) { // 100503
+    draw_stop_watch.Mark(_T("DrawTaskAAT"));
 	DrawTaskAAT(hdc, rc);
   }
 
@@ -210,6 +219,7 @@ fastzoom:
  
   if (OnAirSpace > 0)  // Default is true, always true at startup no regsave 
   {
+    draw_stop_watch.Mark(_T("DrawAirSpace"));
     if ( (GetAirSpaceFillType() == asp_fill_ablend_full) || (GetAirSpaceFillType() == asp_fill_ablend_borders) )
       DrawTptAirSpace(hdc, rc);
     else
@@ -221,6 +231,7 @@ fastzoom:
 		goto QuickRedraw;
 	}
   
+        draw_stop_watch.Mark(_T("DrawTrail"));
   if(TrailActive) {
 	// NEED REWRITING
 	LKDrawTrail(hdc, Orig_Aircraft, rc);
@@ -231,6 +242,7 @@ fastzoom:
 		goto QuickRedraw;
 	}
 
+        draw_stop_watch.Mark(_T("DrawThermalEstimate"));
   DrawThermalEstimate(hdc, rc);
   if (OvertargetMode==OVT_THER) DrawThermalEstimateMultitarget(hdc, rc);
  
@@ -238,6 +250,7 @@ fastzoom:
 	DrawTask(hdc, rc, Orig_Aircraft);
   }
   
+  draw_stop_watch.Mark(_T("DrawGlideThroughTerrain"));
   // draw red cross on glide through terrain marker
   if (FinalGlideTerrain && DerivedDrawInfo.TerrainValid) {
     DrawGlideThroughTerrain(hdc, rc);
@@ -249,20 +262,25 @@ fastzoom:
 	}
   if ((OnAirSpace > 0) && AirspaceWarningMapLabels)
   {
+    draw_stop_watch.Mark(_T("DrawAirspaceLabels"));
 	DrawAirspaceLabels(hdc, rc, Orig_Aircraft);
 	if (DONTDRAWTHEMAP) { // 100319
 		SelectObject(hdcDrawWindow, hfOld);
 		goto QuickRedraw;
 	}
   }
+
+  draw_stop_watch.Mark(_T("DrawWaypointsNew"));
   DrawWaypointsNew(hdc,rc);
  	if (DONTDRAWTHEMAP) { // 100319
 		SelectObject(hdcDrawWindow, hfOld);
 		goto QuickRedraw;
 	}
 
+        draw_stop_watch.Mark(_T("DrawTeammate"));
   DrawTeammate(hdc, rc);
 
+        draw_stop_watch.Mark(_T("DrawTrack"));
   if (extGPSCONNECT) {
     DrawProjectedTrack(hdc, rc, Orig_Aircraft);
     DrawBestCruiseTrack(hdc, Orig_Aircraft);
@@ -270,6 +288,7 @@ fastzoom:
   }
 
   // draw wind vector at aircraft
+        draw_stop_watch.Mark(_T("DrawWind"));
   if (!mode.AnyPan()) {
     DrawWindAtAircraft2(hdc, Orig_Aircraft, rc);
   } else if (mode.Is(Mode::MODE_TARGET_PAN)) {
@@ -277,6 +296,7 @@ fastzoom:
   }
 
   // VisualGlide drawn BEFORE lk8000 overlays
+  draw_stop_watch.Mark(_T("DrawGlideCircle"));
   if (!mode.AnyPan() && VisualGlide > 0) {
     DrawGlideCircle(hdc, Orig, rc); 
   }
@@ -287,6 +307,7 @@ fastzoom:
 	}
 
   // Draw traffic and other specifix LK gauges
+        draw_stop_watch.Mark(_T("LKDrawFLARMTraffic"));
   	LKDrawFLARMTraffic(hdc, rc, Orig_Aircraft);
 	if ( !mode.AnyPan()) DrawLook8000(hdc,rc); 
 	if (LKVarioBar && !mode.AnyPan()) // 091214 do not draw Vario when in Pan mode
@@ -294,20 +315,24 @@ fastzoom:
   
   // finally, draw you!
   // Draw cross air for panmode, instead of aircraft icon
+  draw_stop_watch.Mark(_T("DrawCrossHairs"));
   if (mode.AnyPan() && !mode.Is(Mode::MODE_TARGET_PAN)) {
     DrawCrossHairs(hdc, Orig, rc);
   }
 
   // Draw glider or paraglider
+  draw_stop_watch.Mark(_T("DrawAircraft"));
   if (extGPSCONNECT) {
     DrawAircraft(hdc, Orig_Aircraft);
   }
 
+  draw_stop_watch.Mark(_T("DrawHeading"));
   if (!mode.AnyPan()) {
 	if (TrackBar) DrawHeading(hdc, Orig, rc); 
   }
 
   #if USETOPOMARKS
+  draw_stop_watch.Mark(_T("DrawMarks"));
   // marks on top...
   DrawMarks(hdc, rc);
   #endif

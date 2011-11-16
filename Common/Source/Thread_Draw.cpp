@@ -12,6 +12,7 @@
 
 #include "Bitmaps.h"
 #include "RGB.h"
+#include "StopWatch.hpp"
 
 using std::min;
 using std::max;
@@ -27,6 +28,8 @@ BOOL MapWindow::Initialised = FALSE;
 
 DWORD  MapWindow::dwDrawThreadID;
 HANDLE MapWindow::hDrawThread;
+
+ScreenStopWatch draw_stop_watch;
 
 #ifdef CPUSTATS
 extern void DrawCpuStats(HDC hdc, RECT rc );
@@ -132,11 +135,14 @@ DWORD MapWindow::DrawThread (LPVOID lpvoid)
 	MapDirty = false;
       }
 
+      draw_stop_watch.Mark(_T("UpdateInfo"));
       MapWindow::UpdateInfo(&GPS_INFO, &CALCULATED_INFO);
 
+      draw_stop_watch.Mark(_T("call RenderMapWindow"));
       RenderMapWindow(MapRect);
     
       if (!first) {
+        draw_stop_watch.Mark(_T("BitBlt"));
 	BitBlt(hdcScreen, 0, 0, 
 	       MapRect.right-MapRect.left,
 	       MapRect.bottom-MapRect.top, 
@@ -146,7 +152,9 @@ DWORD MapWindow::DrawThread (LPVOID lpvoid)
       UpdateTimeStats(false);
 
       // we do caching after screen update, to minimise perceived delay
+      draw_stop_watch.Mark(_T("UpdateCaches"));
       UpdateCaches(first);
+      draw_stop_watch.Finish();
       first = false;
       if (ProgramStarted==psInitDone) {
 	ProgramStarted = psFirstDrawDone;

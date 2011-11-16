@@ -58,5 +58,8 @@ extern void		ConvToUpper( TCHAR *);
 extern bool		Debounce(int debouncetime);
 extern bool		Debounce();
 
+class ScreenStopWatch;
+extern ScreenStopWatch draw_stop_watch;
+
 #endif
 

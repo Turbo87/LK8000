@@ -8,6 +8,7 @@
 
 #include "externs.h"
 #include "MapWindow.h"
+#include "StopWatch.hpp"
 
 #define DONTDRAWTHEMAP !mode.AnyPan()&&MapSpaceMode!=MSM_MAP
 
@@ -81,6 +82,7 @@ void MapWindow::RenderMapWindow(RECT rc)
     // CalculateWayPointReachable new, setting values for visible wps!
     // This is also calculating CalculateScreenBounds 0.0  and placing it inside MapWindow::screenbounds_latlon
     //
+    draw_stop_watch.Mark(_T("CalculateScreenPositions"));
     CalculateScreenPositions(Orig, rc, &Orig_Aircraft);
     LKUpdateOlc();
   } else {
@@ -103,6 +105,7 @@ void MapWindow::RenderMapWindow(RECT rc)
 
   hfOld = (HFONT)SelectObject(hdcDrawWindow, MapWindowFont);
   
+  draw_stop_watch.Mark(_T("DrawMapScale"));
   DrawMapScale(hdcDrawWindow,rc, zoom.BigZoom()); // unused BigZoom 
 
   //
@@ -116,26 +119,33 @@ void MapWindow::RenderMapWindow(RECT rc)
 	return;
   }
 
+  draw_stop_watch.Mark(_T("DrawCompass"));
   DrawCompass(hdcDrawWindow, rc);
   
+  draw_stop_watch.Mark(_T("DrawFlightMode"));
   DrawFlightMode(hdcDrawWindow, rc);
   
   if (!mode.AnyPan()) {
     // REMINDER TODO let it be configurable for not circling also, as before
     if ((mode.Is(Mode::MODE_CIRCLING)) )
+      draw_stop_watch.Mark(_T("DrawThermalBand"));
+    if ((mode.Is(Mode::MODE_CIRCLING)) )
       if (ThermalBar) DrawThermalBand(hdcDrawWindow, rc); // 091122
     
+    draw_stop_watch.Mark(_T("DrawFinalGlide"));
     DrawFinalGlide(hdcDrawWindow,rc);
   }
   
   // DrawSpeedToFly(hdcDrawWindow, rc);  // Usable
 
+  draw_stop_watch.Mark(_T("DrawGPSStatus"));
   DrawGPSStatus(hdcDrawWindow, rc);
 
   #if (WINDOWSPC<1)
   LKBatteryManager();
   #endif
 
+  draw_stop_watch.Mark(_T("DrawLKAlarms"));
   DrawLKAlarms(hdcDrawWindow, rc);
 
   SelectObject(hdcDrawWindow, hfOld);
